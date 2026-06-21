@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Category, Task, NavContext } from "@/types";
 import { LeftPane } from "@/components/task/LeftPane";
 import { CenterPane } from "@/components/task/CenterPane";
@@ -8,6 +8,14 @@ import { RightPane } from "@/components/task/RightPane";
 import { MobileHeader } from "@/components/task/MobileHeader";
 import { TaskDetailSheet } from "@/components/task/TaskDetailSheet";
 import { TaskForm, TaskFormData } from "@/components/task/TaskForm";
+import { ResizeHandle } from "@/components/task/ResizeHandle";
+
+const LEFT_MIN = 160;
+const LEFT_MAX = 480;
+const RIGHT_MIN = 220;
+const RIGHT_MAX = 560;
+const LEFT_DEFAULT = 240;
+const RIGHT_DEFAULT = 320;
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -20,6 +28,37 @@ export default function Home() {
   // Mobile state
   const [navOpen, setNavOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
+
+  // Resizable pane widths
+  const [leftWidth, setLeftWidth] = useState(LEFT_DEFAULT);
+  const [rightWidth, setRightWidth] = useState(RIGHT_DEFAULT);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Restore widths from localStorage on mount
+  useEffect(() => {
+    try {
+      const l = parseInt(localStorage.getItem("pane-left") ?? "");
+      const r = parseInt(localStorage.getItem("pane-right") ?? "");
+      if (!isNaN(l)) setLeftWidth(Math.min(Math.max(l, LEFT_MIN), LEFT_MAX));
+      if (!isNaN(r)) setRightWidth(Math.min(Math.max(r, RIGHT_MIN), RIGHT_MAX));
+    } catch {}
+  }, []);
+
+  const handleLeftResize = useCallback((delta: number) => {
+    setLeftWidth((prev) => {
+      const next = Math.min(Math.max(prev + delta, LEFT_MIN), LEFT_MAX);
+      try { localStorage.setItem("pane-left", String(next)); } catch {}
+      return next;
+    });
+  }, []);
+
+  const handleRightResize = useCallback((delta: number) => {
+    setRightWidth((prev) => {
+      const next = Math.min(Math.max(prev - delta, RIGHT_MIN), RIGHT_MAX);
+      try { localStorage.setItem("pane-right", String(next)); } catch {}
+      return next;
+    });
+  }, []);
 
   // ── Data fetching ─────────────────────────────────────────────────────────
 
@@ -248,19 +287,24 @@ export default function Home() {
       />
 
       {/* ─── Desktop 3-pane (hidden below md) ─── */}
-      <div className="hidden md:flex flex-1 min-h-0">
+      <div ref={containerRef} className="hidden md:flex flex-1 min-h-0 overflow-hidden">
         {/* Left pane */}
-        <LeftPane
-          categories={categories}
-          context={context}
-          onSelect={setContext}
-          onAddCategory={handleAddCategory}
-          onRenameCategory={handleRenameCategory}
-          onDeleteCategory={handleDeleteCategory}
-          onAddProject={handleAddProject}
-          onRenameProject={handleRenameProject}
-          onDeleteProject={handleDeleteProject}
-        />
+        <div style={{ width: leftWidth, minWidth: leftWidth }} className="shrink-0 overflow-hidden">
+          <LeftPane
+            categories={categories}
+            context={context}
+            onSelect={setContext}
+            onAddCategory={handleAddCategory}
+            onRenameCategory={handleRenameCategory}
+            onDeleteCategory={handleDeleteCategory}
+            onAddProject={handleAddProject}
+            onRenameProject={handleRenameProject}
+            onDeleteProject={handleDeleteProject}
+          />
+        </div>
+
+        {/* Left resize handle */}
+        <ResizeHandle onDrag={handleLeftResize} className="border-x border-border" />
 
         {/* Center pane */}
         <div className="flex-1 min-w-0">
@@ -274,8 +318,11 @@ export default function Home() {
           />
         </div>
 
+        {/* Right resize handle */}
+        <ResizeHandle onDrag={handleRightResize} className="border-x border-border" />
+
         {/* Right pane */}
-        <div className="w-80 shrink-0 border-l border-border">
+        <div style={{ width: rightWidth, minWidth: rightWidth }} className="shrink-0 overflow-hidden border-l border-border">
           <RightPane
             task={selectedTask}
             onEdit={(t) => { setEditingTask(t); setFormOpen(true); }}
