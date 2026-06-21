@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       priority: body.priority ?? "medium",
       progress: body.progress ?? 0,
       memo: body.memo ?? null,
+      recurrence: body.recurrence ?? "none",
       subtasks: body.subtasks ?? [],
       tags: body.tags ?? [],
     });

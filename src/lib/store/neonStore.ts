@@ -4,6 +4,7 @@
  */
 
 import { getDb } from "@/db";
+import { nextDueDate } from "@/lib/recurrence";
 import {
   categories,
   projects,
@@ -265,6 +266,7 @@ export async function createTask(data: {
   priority?: string;
   progress?: number;
   memo?: string | null;
+  recurrence?: string;
   subtasks?: { title: string; dueDate?: string | null; done?: boolean }[];
   tags?: string[];
 }) {
@@ -280,6 +282,7 @@ export async function createTask(data: {
       progress: data.progress ?? 0,
       memo: data.memo ?? null,
       done: false,
+      recurrence: data.recurrence ?? "none",
     })
     .returning();
 
@@ -323,11 +326,17 @@ export async function updateTask(
     progress?: number;
     memo?: string | null;
     done?: boolean;
+    recurrence?: string;
     subtasks?: { id?: string; title: string; dueDate?: string | null; done?: boolean }[];
     tags?: string[];
   }
 ) {
   const db = getDb();
+
+  // 繰り返しロジック: done=true かつ recurrence != none → 次回日付にロールオーバー
+  const current = await db.query.tasks.findFirst({ where: eq(tasks.id, id) });
+  const recurrence = (data.recurrence ?? current?.recurrence ?? "none") as import("@/types").Recurrence;
+
   const update: Partial<typeof tasks.$inferInsert> = { updatedAt: new Date() };
   if (data.title !== undefined) update.title = data.title;
   if (data.type !== undefined) update.type = data.type;
@@ -336,7 +345,16 @@ export async function updateTask(
   if (data.priority !== undefined) update.priority = data.priority;
   if (data.progress !== undefined) update.progress = data.progress;
   if (data.memo !== undefined) update.memo = data.memo;
-  if (data.done !== undefined) update.done = data.done;
+  if (data.recurrence !== undefined) update.recurrence = data.recurrence;
+
+  if (data.done === true && recurrence !== "none") {
+    // ロールオーバー: 次回日付に進め、done をリセット
+    update.dueDate = nextDueDate(current?.dueDate ?? null, recurrence);
+    update.done = false;
+    update.progress = 0;
+  } else if (data.done !== undefined) {
+    update.done = data.done;
+  }
 
   await db.update(tasks).set(update).where(eq(tasks.id, id));
 
@@ -353,19 +371,17 @@ export async function updateTask(
         }))
       );
     }
+    // ロールオーバー時はサブタスクも未完了にリセット
+    if (data.done === true && recurrence !== "none") {
+      await db.update(subtasks).set({ done: false }).where(eq(subtasks.taskId, id));
+    }
   }
 
   if (data.tags !== undefined) {
     await db.delete(taskTags).where(eq(taskTags.taskId, id));
     for (const name of data.tags) {
-      let [tag] = await db
-        .select()
-        .from(tags)
-        .where(eq(tags.name, name))
-        .limit(1);
-      if (!tag) {
-        [tag] = await db.insert(tags).values({ name }).returning();
-      }
+      let [tag] = await db.select().from(tags).where(eq(tags.name, name)).limit(1);
+      if (!tag) [tag] = await db.insert(tags).values({ name }).returning();
       await db.insert(taskTags).values({ taskId: id, tagId: tag.id });
     }
   }
@@ -373,11 +389,9 @@ export async function updateTask(
   // Recalculate progress from subtasks
   const subs = await db.select().from(subtasks).where(eq(subtasks.taskId, id));
   if (subs.length > 0) {
-    const progress = Math.round(
-      (subs.filter((s) => s.done).length / subs.length) * 100
-    );
+    const progress = Math.round((subs.filter((s) => s.done).length / subs.length) * 100);
     await db.update(tasks).set({ progress }).where(eq(tasks.id, id));
-  } else if (data.done) {
+  } else if (update.done) {
     await db.update(tasks).set({ progress: 100 }).where(eq(tasks.id, id));
   }
 

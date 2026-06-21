@@ -21,7 +21,9 @@ import {
   Trash2,
   X,
   PanelRight,
+  RefreshCw,
 } from "lucide-react";
+import { recurrenceLabel } from "@/lib/recurrence";
 
 interface RightPaneProps {
   task: Task | null;
@@ -120,7 +122,19 @@ export function RightPane({
                 {priorityLabel(task.priority)}
               </Badge>
             </div>
-            {task.project && (
+            {task.recurrence && task.recurrence !== "none" && (
+              <div className="flex items-center justify-between text-sm">
+                <span className="flex items-center gap-1.5 text-muted-foreground">
+                  <RefreshCw className="h-3.5 w-3.5" />
+                  繰り返し
+                </span>
+                <span className="text-blue-600 font-medium text-xs bg-blue-50 px-2 py-0.5 rounded-full">
+                  {recurrenceLabel[task.recurrence]}
+                </span>
+              </div>
+            )}
+
+          {task.project && (
               <div className="flex items-center justify-between text-sm gap-2">
                 <span className="flex items-center gap-1.5 text-muted-foreground shrink-0">
                   <Folder className="h-3.5 w-3.5" />

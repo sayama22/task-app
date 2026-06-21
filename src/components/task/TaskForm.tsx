@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Task, Category, Priority, TaskType } from "@/types";
+import { Task, Category, Priority, TaskType, Recurrence } from "@/types";
+import { recurrenceLabel } from "@/lib/recurrence";
+import { RefreshCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -35,6 +37,7 @@ export interface TaskFormData {
   projectId: string | null;
   dueDate: string | null;
   priority: Priority;
+  recurrence: Recurrence;
   memo: string | null;
   tags: string[];
   subtasks: { id?: string; title: string; dueDate: string | null; done: boolean }[];
@@ -46,6 +49,7 @@ const defaultForm = (): TaskFormData => ({
   projectId: null,
   dueDate: null,
   priority: "medium",
+  recurrence: "none",
   memo: null,
   tags: [],
   subtasks: [],
@@ -58,6 +62,7 @@ function toFormData(task: Task): TaskFormData {
     projectId: task.projectId,
     dueDate: task.dueDate ?? null,
     priority: task.priority,
+    recurrence: task.recurrence ?? "none",
     memo: task.memo ?? null,
     tags: task.tags?.map((t) => t.name) ?? [],
     subtasks:
@@ -189,7 +194,7 @@ export function TaskForm({
             </div>
           </div>
 
-          {/* Due date + Priority */}
+          {/* Due date + Priority + Recurrence */}
           <div className="grid grid-cols-2 gap-3">
             <div className="grid gap-1.5">
               <Label htmlFor="dueDate">期限</Label>
@@ -217,6 +222,32 @@ export function TaskForm({
                 <option value="low">低</option>
               </select>
             </div>
+          </div>
+
+          {/* Recurrence */}
+          <div className="grid gap-1.5">
+            <Label htmlFor="recurrence" className="flex items-center gap-1.5">
+              <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+              繰り返し
+            </Label>
+            <select
+              id="recurrence"
+              value={form.recurrence}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, recurrence: e.target.value as Recurrence }))
+              }
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+            >
+              {(Object.entries(recurrenceLabel) as [Recurrence, string][]).map(([v, l]) => (
+                <option key={v} value={v}>{l}</option>
+              ))}
+            </select>
+            {form.recurrence !== "none" && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <RefreshCw className="h-3 w-3" />
+                完了すると自動で次回日付に更新されます
+              </p>
+            )}
           </div>
 
           {/* Progress (readonly when subtasks exist) */}

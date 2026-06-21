@@ -36,6 +36,7 @@ export async function PATCH(
       progress: body.progress,
       memo: body.memo,
       done: body.done,
+      recurrence: body.recurrence,
       subtasks: body.subtasks,
       tags: body.tags,
     });

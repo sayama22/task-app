@@ -14,7 +14,9 @@ import {
   Clock,
   Folder,
   ListTodo,
+  RefreshCw,
 } from "lucide-react";
+import { recurrenceIcon } from "@/lib/recurrence";
 
 interface CenterPaneProps {
   tasks: Task[];
@@ -109,7 +111,14 @@ export function CenterPane({
             )}
           </div>
 
-          {task.subtaskDueSoon && (
+            {task.recurrence && task.recurrence !== "none" && (
+              <span className="inline-flex items-center gap-0.5 text-[10px] text-blue-500 bg-blue-50 px-1.5 py-0.5 rounded-full">
+                <RefreshCw className="h-2.5 w-2.5" />
+                {recurrenceIcon[task.recurrence]}
+              </span>
+            )}
+
+            {task.subtaskDueSoon && (
             <p className="text-xs text-orange-500 mt-0.5 flex items-center gap-1">
               <AlertCircle size={10} />
               サブタスク「{task.subtaskDueSoon}」が締切

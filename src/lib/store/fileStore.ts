@@ -7,6 +7,7 @@
 import fs from "fs";
 import path from "path";
 import { randomUUID } from "crypto";
+import { nextDueDate } from "@/lib/recurrence";
 
 const DATA_DIR = path.join(process.cwd(), ".data");
 const DB_PATH = path.join(DATA_DIR, "db.json");
@@ -48,6 +49,7 @@ interface TaskRow {
   progress: number;
   memo: string | null;
   done: boolean;
+  recurrence: string;
   sort_order: number;
   created_at: string;
   updated_at: string;
@@ -298,6 +300,7 @@ function enrichTask(db: DbData, task: TaskRow) {
     progress,
     memo: task.memo,
     done: task.done,
+    recurrence: (task.recurrence ?? "none") as import("@/types").Recurrence,
     sortOrder: task.sort_order,
     createdAt: task.created_at,
     updatedAt: task.updated_at,
@@ -403,6 +406,7 @@ export function createTask(data: {
   priority?: string;
   progress?: number;
   memo?: string | null;
+  recurrence?: string;
   subtasks?: { title: string; dueDate?: string | null; done?: boolean }[];
   tags?: string[];
 }) {
@@ -417,6 +421,7 @@ export function createTask(data: {
     progress: data.progress ?? 0,
     memo: data.memo ?? null,
     done: false,
+    recurrence: data.recurrence ?? "none",
     sort_order: db.tasks.length,
     created_at: now(),
     updated_at: now(),
@@ -463,6 +468,7 @@ export function updateTask(
     progress?: number;
     memo?: string | null;
     done?: boolean;
+    recurrence?: string;
     subtasks?: { id?: string; title: string; dueDate?: string | null; done?: boolean }[];
     tags?: string[];
   }
@@ -479,8 +485,20 @@ export function updateTask(
   if (data.priority !== undefined) task.priority = data.priority;
   if (data.progress !== undefined) task.progress = data.progress;
   if (data.memo !== undefined) task.memo = data.memo;
-  if (data.done !== undefined) task.done = data.done;
+  if (data.recurrence !== undefined) task.recurrence = data.recurrence;
   task.updated_at = now();
+
+  // 繰り返しロジック: done=true かつ recurrence != none → 次回日付にロールオーバー
+  const recurrence = (task.recurrence ?? "none") as import("@/types").Recurrence;
+  if (data.done === true && recurrence !== "none") {
+    task.due_date = nextDueDate(task.due_date, recurrence);
+    task.done = false; // リセット
+    // サブタスクも未完了にリセット
+    db.subtasks.filter((s) => s.task_id === id).forEach((s) => { s.done = false; });
+    task.progress = 0;
+  } else {
+    if (data.done !== undefined) task.done = data.done;
+  }
 
   if (data.subtasks !== undefined) {
     db.subtasks = db.subtasks.filter((s) => s.task_id !== id);

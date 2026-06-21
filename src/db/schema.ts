@@ -41,6 +41,7 @@ export const tasks = pgTable("task", {
   progress: integer("progress").notNull().default(0),
   memo: text("memo"),
   done: boolean("done").notNull().default(false),
+  recurrence: text("recurrence").notNull().default("none"), // "none" | "daily" | "weekly" | "monthly"
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

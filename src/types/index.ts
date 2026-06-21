@@ -1,6 +1,7 @@
 export type Priority = "high" | "medium" | "low";
 export type TaskType = "task" | "todo";
 export type SmartFilter = "today" | "week" | "month";
+export type Recurrence = "none" | "daily" | "weekly" | "monthly";
 
 export interface Category {
   id: string;
@@ -51,6 +52,7 @@ export interface Task {
   progress: number;
   memo: string | null;
   done: boolean;
+  recurrence: Recurrence;
   sortOrder: number;
   createdAt: string;
   updatedAt: string;
@@ -58,7 +60,7 @@ export interface Task {
   attachments?: Attachment[];
   tags?: Tag[];
   project?: Project & { category?: Category };
-  subtaskDueSoon?: string; // label for smart filter hint
+  subtaskDueSoon?: string;
 }
 
 export type NavContext =
